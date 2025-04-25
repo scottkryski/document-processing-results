@@ -1,192 +1,139 @@
 <!DOCTYPE html>
 <html lang='en'>
 <head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>TruSource Metadata Analysis Report</title>
-    <link rel='preconnect' href='https://fonts.googleapis.com'>
-    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
-    <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap' rel='stylesheet'>
-    <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
-    <style>
-        :root {
-            /* Light */
-            --bg: #fafafa; --card: #ffffff; --text: #1f2937; --sub: #6b7280; --accent: #2563eb; --border: #e5e7eb;
-            /* Dark */
-            --bg-dark: #0f172a; --card-dark: #1e293b; --text-dark: #f8fafc; --sub-dark: #94a3b8; --border-dark: #334155;
-        }
-        html, body {
-            margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); scroll-behavior: smooth;
-        }
-        body.dark {
-            background: var(--bg-dark); color: var(--text-dark);
-        }
-        .container {
-            max-width: 1200px; margin: auto; padding: 20px;
-        }
-        h1, h2, h3 {
-            margin-top: 1.5rem; margin-bottom: .5rem; font-weight: 600;
-        }
-        h1 {
-            font-size: 2em;
-        }
-        h2 {
-            font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 5px;
-        }
-        body.dark h2 {
-            border-bottom-color: var(--border-dark);
-        }
-        h3 {
-            font-size: 1.3em; color: var(--accent); margin-top: 0;
-        }
-        h4 {
-            font-size: 1.1em; margin-top: 1rem; margin-bottom: 0.5rem; color: var(--sub);
-        }
-        body.dark h4 {
-            color: var(--sub-dark);
-        }
-        a.toggle-mode {
-            position: fixed; top: 1rem; right: 1rem; background: var(--accent); color: #fff; padding: .4rem .8rem; border-radius: .4rem; cursor: pointer; user-select: none; z-index: 30;
-        }
-        .card {
-            background: var(--card); padding: 1rem 1.2rem; border-radius: .6rem; margin: 1rem 0; box-shadow: 0 2px 4px rgba(0, 0, 0, .05); border: 1px solid var(--border);
-        }
-        body.dark .card {
-            background: var(--card-dark); border-color: var(--border-dark);
-        }
-        .field-card-title {
-            cursor: pointer; color: var(--accent); font-weight: 600; font-size: 1.2em; margin-bottom: 0.5rem;
-        }
-        .field-card-title:hover {
-            text-decoration: underline;
-        }
-        .field-summary-info {
-            color: var(--sub); font-size: 0.9em;
-        }
-        body.dark .field-summary-info {
-            color: var(--sub-dark);
-        }
-        /* file overlay */
-        #overlay {
-            position: fixed; inset: 0; background: rgba(0, 0, 0, .7); z-index: 20; display: flex; align-items: center; justify-content: center; padding: 2rem;display: none;
-        }
-        #overlay .panel {
-            width: 85%; max-width: 900px; background: var(--card); padding: 2rem; overflow-y: auto; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); border-radius: 8px; border: 1px solid var(--border); position: relative;
-        }
-        body.dark #overlay .panel {
-            background: var(--card-dark); border-left-color: var(--border-dark);
-        }
-        #overlay h3 {
-            margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; margin-bottom: 1rem;
-        }
-        body.dark #overlay h3 {
-            border-bottom-color: var(--border-dark);
-        }
-        #overlay .close-btn {
-            position: absolute; top: 1rem; right: 1.5rem; font-size: 1.8rem; cursor: pointer; color: var(--sub); border: none; background: none;
-        }
-        body.dark #overlay .close-btn {
-            color: var(--sub-dark);
-        }
-        ul.file-list {
-            margin: 0.5rem 0 1rem 0; padding-left: 1.2rem; max-height: 250px; overflow-y: auto; border: 1px solid var(--border); padding: 10px; background: var(--bg); border-radius: 4px;
-        }
-        body.dark ul.file-list {
-            border-color: var(--border-dark); background: var(--bg-dark);
-        }
-        li {
-            margin: .2rem 0; font-size: 0.85em;
-        }
-        details > summary {
-            cursor: pointer; font-weight: 500; margin-top: 0.5rem; color: var(--accent);
-        }
-        details {
-            margin-bottom: 0.5rem;
-        }
-        canvas {
-            max-width: 100%; height: auto; max-height: 800px; margin-top: 1rem;
-        }
-        table {
-            width: 100%; border-collapse: collapse; font-size: .9rem; margin-top: 0.5rem;
-        }
-        th, td {
-            padding: .4rem .6rem; border: 1px solid var(--border);
-        }
-        body.dark th, body.dark td {
-            border: 1px solid var(--border-dark);
-        }
-        th {
-            background-color: #f3f4f6; font-weight: 600; text-align: left;
-        }
-        body.dark th {
-            background-color: #334155;
-        }
-        tr:nth-child(even) {
-            background-color: #f9fafb;
-        }
-        body.dark tr:nth-child(even) {
-            background-color: #1e293b;
-        }
-        .trust-attributes ul {
-            list-style-type: disc; margin-left: 20px; padding-left: 0;
-        }
-        .trust-attributes li {
-            margin-bottom: 5px; font-size: 0.9em;
-        }
-        .trust-attributes strong {
-            color: var(--text);
-        }
-        body.dark .trust-attributes strong {
-            color: var(--text-dark);
-        }
-        .note {
-            font-style: italic; color: var(--sub); font-size: 0.9em;
-        }
-        body.dark .note {
-            color: var(--sub-dark);
-        }
-        code, .field-name {
-            background-color: #e5e7eb; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #374151;
-        }
-        body.dark code, body.dark .field-name {
-            background-color: #334155; color: #e2e8f0;
-        }
-        .percentage, .count {
-            text-align: right;
-        }
-        .reliability {
-            white-space: nowrap;
-        }
-    </style>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Document Processing Analysis Comparison</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+<link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap' rel='stylesheet'>
+<script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+<style>
+ :root {
+   /* Light */
+   --bg:#fafafa; --card:#ffffff; --text:#1f2937; --sub:#6b7280; --accent:#2563eb; --border: #e5e7eb;
+   /* Dark  */
+   --bg-dark:#0f172a; --card-dark:#1e293b; --text-dark:#f8fafc; --sub-dark:#94a3b8; --border-dark: #334155;
+ }
+ html,body{margin:0;padding:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);scroll-behavior: smooth;}
+ body.dark {background:var(--bg-dark);color:var(--text-dark);}
+ .container { max-width: 1600px; margin: auto; padding: 20px; } /* Wider container */
+ h1,h2,h3{margin-top:1.5rem;margin-bottom:.5rem;font-weight:600;}
+ h1 { font-size: 2em; }
+ h2 { font-size: 1.6em; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+ body.dark h2 { border-bottom-color: var(--border-dark); }
+ h3 { font-size: 1.3em; color: var(--accent); margin-top: 0; } /* Panel title */
+ h4 { font-size: 1.1em; margin-top: 1rem; margin-bottom: 0.5rem; color: var(--sub); }
+ body.dark h4 { color: var(--sub-dark); }
+ .controls { display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: var(--card); border-radius: 5px; margin-bottom: 1rem; border: 1px solid var(--border); position: sticky; top: 0; z-index: 10;}
+ body.dark .controls { background-color: var(--card-dark); border-color: var(--border-dark); }
+ .controls label { margin-right: 10px; font-weight: 500; }
+ .controls .checkbox-group label { margin-right: 5px; font-weight: 400; cursor:pointer; }
+ .controls .checkbox-group input[type="checkbox"] { margin-right: 3px; vertical-align: middle; cursor:pointer; }
+ .controls .checkbox-group span { margin-right: 15px; display: inline-block; } /* Wrap label and checkbox */
+ a.toggle-mode{background:var(--accent);color:#fff;padding:.4rem .8rem;border-radius:.4rem;cursor:pointer;user-select:none;}
+ #compareBtn { padding: 0.4rem 0.8rem; background-color: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; margin-left: 15px;}
+ #compareBtn:hover { background-color: #1d4ed8; }
+ body.dark #compareBtn { background-color: #3b82f6; }
+ body.dark #compareBtn:hover { background-color: #2563eb; }
+
+
+ .card{background:var(--card);transition: 0.3s;padding:1rem 1.2rem;border-radius:.6rem;margin:1rem 0;box-shadow:0 2px 4px rgba(0,0,0,.05);border: 1px solid var(--border);}
+ .card:hover{background-color: #0f172a; box-shadow: 0 4px 8px rgba(0,0,0,.2);}
+  body.dark .card:hover{box-shadow: 0 4px 8px rgba(0,0,0,.2);}
+ body.dark .card{background:var(--card-dark); border-color: var(--border-dark);}
+ .chart-card { padding: 1.5rem; }
+ .field-card-title{cursor:pointer;color:var(--accent);font-weight:600;font-size:1.2em;margin-bottom: 0.5rem;}
+ .field-card-title:hover { text-decoration: underline; }
+ .field-summary-info { color: var(--sub); font-size: 0.9em; }
+ body.dark .field-summary-info { color: var(--sub-dark); }
+
+ /* --- Comparison Layout --- */
+ #comparison-area { display: grid; gap: 1.5rem; margin-top: 1rem; }
+ /* Grid columns will be set by JS based on selection */
+
+ .run-column { border: 1px solid var(--border); border-radius: 5px; padding: 1rem; background-color: var(--card); }
+ body.dark .run-column { border-color: var(--border-dark); background-color: var(--card-dark); }
+ .run-column h2 { font-size: 1.4em; margin-top: 0; color: var(--accent); border-bottom: none; }
+ .run-column .timing-info { font-size: 0.9em; color: var(--sub); margin-bottom: 1rem; }
+ body.dark .run-column .timing-info { color: var(--sub-dark); }
+ .run-column .chart-container { margin-bottom: 1.5rem; }
+ .run-column canvas { max-width: 100%; height: auto; max-height: 500px; }
+
+ /* --- Overlay Panel (remains mostly the same) --- */
+ #overlay{ position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:20; display: flex; align-items: center; justify-content: center; padding: 2rem; display: none; }
+ #overlay .panel{ width: 90%; max-width: 80%; max-height: 90vh; background:var(--card); padding:1.5rem 2rem; overflow-y:auto; box-shadow: 0 5px 15px rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border); position: relative; }
+ body.dark #overlay .panel{ background:var(--card-dark); border-color: var(--border-dark); }
+ #overlay h3{ margin-top:0; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; margin-bottom: 1rem; }
+ body.dark #overlay h3 { border-bottom-color: var(--border-dark); }
+ #overlay .close-btn { position: absolute; top: 1rem; right: 1.5rem; font-size: 1.8rem; font-weight: bold; cursor: pointer; color: var(--sub); border: none; background: none; padding: 0; line-height: 1; }
+ body.dark #overlay .close-btn { color: var(--sub-dark); }
+ #panelContent table { width: auto; min-width: 600px; } /* Allow panel table to scroll horizontally if needed */
+ #panelContent .comparison-grid { display: grid; gap: 1rem; } /* Grid for side-by-side panel content */
+ #panelContent .panel-column { border: 1px solid var(--border); border-radius: 4px; padding: 1rem; background-color: var(--bg); } /* Style columns inside panel */
+ body.dark #panelContent .panel-column { border-color: var(--border-dark); background-color: var(--bg-dark); }
+ #panelContent h5 { font-size: 1em; margin-top: 0.8rem; margin-bottom: 0.3rem; color: var(--sub); font-weight: 600; }
+ body.dark #panelContent h5 { color: var(--sub-dark); }
+
+
+ /* Other styles (ul.file-list, details, table, trust-attributes, note, code, etc.) remain the same */
+ ul.file-list{margin:0.5rem 0 1rem 0;padding-left:1.2rem;max-height: 250px; overflow-y: auto; border: 1px solid var(--border); padding: 10px; background: var(--bg); border-radius: 4px;}
+ body.dark ul.file-list { border-color: var(--border-dark); background: var(--bg-dark); }
+ li{margin:.2rem 0; font-size: 0.85em;}
+ details > summary { cursor: pointer; font-weight: 500; margin-top: 0.5rem; color: var(--accent); }
+ details { margin-bottom: 0.5rem; }
+ table{width:100%;border-collapse:collapse;font-size:.9rem; margin-top: 0.5rem;}
+ th,td{padding:.4rem .6rem;border:1px solid var(--border);}
+ body.dark th,body.dark td{border:1px solid var(--border-dark);}
+ th{background-color: #f3f4f6; font-weight: 600; text-align: left;}
+ body.dark th{background-color: #334155;}
+ tr:nth-child(even) { background-color: #f9fafb; }
+ body.dark tr:nth-child(even) { background-color: #1e293b; }
+ .trust-attributes ul { list-style-type: disc; margin-left: 20px; padding-left: 0; }
+ .trust-attributes li { margin-bottom: 5px; font-size: 0.9em; }
+ .trust-attributes strong { color: var(--text); }
+ body.dark .trust-attributes strong { color: var(--text-dark); }
+ .note { font-style: italic; color: var(--sub); font-size: 0.9em; }
+ body.dark .note { color: var(--sub-dark); }
+ code, .field-name { background-color: #e5e7eb; padding: 2px 4px; border-radius: 3px; font-family: monospace; color: #374151;}
+ body.dark code, body.dark .field-name { background-color: #334155; color: #e2e8f0; }
+ .percentage, .count { text-align: right; }
+ .reliability { white-space: nowrap; }
+</style>
 </head>
 <body>
-    <span class='toggle-mode' id='modeBtn'>🌙 Dark</span>
-    <div class='container'>
-        <h1>TruSource Metadata Analysis Report</h1>
-        <p>Found <strong>491</strong> total JSON files. Analyzed <strong>479</strong> valid files | Errors/Skipped: <strong>12</strong></p>
-        <div class='card'>
-            <h2>Overall Field Completeness</h2>
-            <p class='note'>Percentage of processed files where each field was present and not empty.</p>
-            <canvas id='completenessChart'></canvas>
+<div class='controls'>
+    <div>
+        <label>Compare Runs:</label>
+        <div id="run-checkboxes" style="display: inline-block;">
+            <!-- Checkboxes will be added by JS -->
         </div>
-        <h2>Field Details</h2>
-        <div id="field-cards-container">
-            <!-- Field cards will be dynamically inserted here by JavaScript -->
-        </div>
-        <div id='overlay' onclick='hideOverlay(event)'>
-            <div class='panel' id='panel'>
-                <button class='close-btn' onclick='hideOverlay(event)' title='Close Panel'>×</button>
-                <h3 id='panelTitle'></h3>
-                <div id='panelContent'></div>
-            </div>
-        </div>
-        <script>
-            // Embed chart data directly for the JS to use
-            const chartLabels = ["doi", "title", "abstract", "authors", "affiliations", "journal_title", "publisher", "issn", "publication_date", "publication_year", "license", "conflict_of_interest", "references_count", "keywords", "openalex_id", "type", "is_oa", "oa_status", "oa_url", "cited_by_count", "mentioned_datasets", "mentioned_software", "data_availability_statement", "code_availability_statement"];
-            const chartValues = [99.16492693110646, 98.95615866388309, 96.4509394572025, 98.53862212943632, 93.1106471816284, 92.90187891440502, 93.73695198329854, 39.87473903966597, 96.03340292275574, 96.03340292275574, 29.64509394572025, 13.569937369519833, 100.0, 95.82463465553236, 93.73695198329854, 93.73695198329854, 93.73695198329854, 93.73695198329854, 91.23173277661796, 93.73695198329854, 0.0, 0.0, 0.0, 0.0];
-            const dataFilePath = 'report_data.json'; // Path to the data file for JS fetch
-        </script>
-        <script src="report_logic.js"></script> <!-- Link to external JS -->
-    </div> <!-- Closing container -->
-</body>
-</html>
+        <button id="compareBtn">Compare</button>
+    </div>
+    <a class='toggle-mode' id='modeBtn'>🌙 Dark</a>
+</div>
+
+<div class='container'>
+    <h1>Document Processing Analysis Comparison</h1>
+    <p id="report-header-info">Select one or more report runs using the checkboxes above and click 'Compare'.</p>
+
+    <div id="comparison-area">
+        <!-- Columns for each selected report will be added here by JS -->
+    </div>
+
+    <div id='overlay' onclick='hideOverlay(event)'>
+      <div class='panel' id='panel' onclick='event.stopPropagation()'>
+        <button class='close-btn' onclick='hideOverlay(event)' title='Close Panel'>×</button>
+        <h3 id='panelTitle'></h3>
+        <div id='panelContent'></div>
+      </div>
+    </div>
+
+    <script>
+        // Path to the manifest file for JS fetch
+        const manifestFilePath = 'reports_manifest.json';
+    </script>
+    <script src="report_logic.js"></script> <!-- Link to external JS -->
+
+</div> <!-- Closing container -->
+</body></html>

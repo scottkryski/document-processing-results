@@ -1,0 +1,14 @@
+{
+  "grobid_only": {
+    "data_file": "report_data_grobid_only.json",
+    "processed_files": 517,
+    "pipeline_duration_seconds": null,
+    "timestamp": "2025-04-25 11:46:06 Pacific Daylight Time"
+  },
+  "docling_fallback": {
+    "data_file": "report_data_docling_fallback.json",
+    "processed_files": 518,
+    "pipeline_duration_seconds": null,
+    "timestamp": "2025-04-25 11:46:08 Pacific Daylight Time"
+  }
+}
