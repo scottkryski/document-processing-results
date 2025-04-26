@@ -1,14 +1,14 @@
 {
-  "grobid_only": {
-    "data_file": "report_data_grobid_only.json",
+  "Grobid_Docling_Fallback": {
+    "data_file": "report_data_Grobid_Docling_Fallback.json",
     "processed_files": 517,
     "pipeline_duration_seconds": null,
-    "timestamp": "2025-04-25 11:46:06 Pacific Daylight Time"
+    "timestamp": "2025-04-25 19:55:27 Pacific Daylight Time"
   },
-  "docling_fallback": {
-    "data_file": "report_data_docling_fallback.json",
-    "processed_files": 518,
+  "Grobid_Only": {
+    "data_file": "report_data_Grobid_Only.json",
+    "processed_files": 516,
     "pipeline_duration_seconds": null,
-    "timestamp": "2025-04-25 11:46:08 Pacific Daylight Time"
+    "timestamp": "2025-04-25 19:56:16 Pacific Daylight Time"
   }
 }
