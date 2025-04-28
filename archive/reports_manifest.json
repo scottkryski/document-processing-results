@@ -1,0 +1,14 @@
+{
+  "Grobid_Docling_Fallback": {
+    "data_file": "report_data_Grobid_Docling_Fallback.json",
+    "processed_files": 517,
+    "pipeline_duration_seconds": null,
+    "timestamp": "2025-04-25 19:55:27 Pacific Daylight Time"
+  },
+  "Grobid_Only": {
+    "data_file": "report_data_Grobid_Only.json",
+    "processed_files": 516,
+    "pipeline_duration_seconds": null,
+    "timestamp": "2025-04-25 19:56:16 Pacific Daylight Time"
+  }
+}

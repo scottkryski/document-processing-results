@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light"> <!-- Bootstrap theme control -->
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enhanced Document‑Processing Report Comparer</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <!-- Plotly.js -->
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+
+    <style>
+        /* Keep custom font */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden; /* Prevent horizontal scrollbar as a safeguard */
+        }
+
+        /* Custom scrollbar for field list (optional) */
+        .field-list::-webkit-scrollbar { width: 6px; }
+        .field-list::-webkit-scrollbar-track { background: transparent; }
+        .field-list::-webkit-scrollbar-thumb { background-color: rgba(108, 117, 125, 0.5); border-radius: 3px; }
+
+        /* Specific styles */
+        .controls { position: sticky; top: 0; z-index: 1030; }
+        .field-list { max-height: calc(100vh - 260px); overflow-y: auto; padding-right: 5px; }
+        .field-btn { font-size: 0.82rem; font-weight: 600; text-align: left; }
+        .field-btn .badge-container { min-width: 80px; text-align: right; } /* Ensure badges align nicely */
+
+        .badge.custom-badge {
+            font-weight: 600; font-size: 0.70rem; /* Slightly smaller */
+            padding: 0.15rem 0.4rem; border-radius: 4px; color: #fff;
+            white-space: normal; /* Allow wrapping if needed */
+        }
+        .badge-stats { font-size: 0.68rem; display: block; } /* Smaller font for Min/Max */
+
+        /* Bootstrap badge background overrides */
+        .badge.bg-success { background-color: #198754 !important; }
+        .badge.bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+        .badge.bg-danger { background-color: #dc3545 !important; }
+        .badge.bg-secondary { background-color: #6c757d !important; }
+
+        .chart-area { min-height: 420px; position: relative; }
+        #mainChart { width: 100%; height: 500px; }
+
+        /* Modal Styles */
+        #detailModal .table { font-size: 0.85rem; margin-top: 0.5rem; }
+        #detailModal details { margin-top: 1rem; }
+        #detailModal summary { cursor: pointer; font-weight: 500; }
+        #detailModal ul { max-height: 200px; overflow-y: auto; font-size: 0.8rem; margin-top: 0.5rem; padding-left: 1.5rem; }
+        #detailModal li { margin-bottom: 2px; }
+        .diff-positive { color: var(--bs-success); }
+        .diff-negative { color: var(--bs-danger); }
+
+        /* Plotly hover label colors */
+        .plotly .hovertext { fill: #fff !important; }
+        [data-bs-theme="dark"] .plotly .hovertext { fill: #1f2937 !important; }
+
+        /* Ensure container doesn't cause issues */
+        .container-fluid { padding-left: 15px; padding-right: 15px; } /* Ensure padding */
+
+    </style>
+</head>
+<body>
+    <!-- Use container-fluid for better full-width usage -->
+    <div class="container-fluid mt-3">
+
+        <!-- Controls / Toolbar -->
+        <div class="controls card card-body shadow-sm mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-3" id="toolbar">
+                <!-- Checkboxes will be added here by JS -->
+                <!-- Buttons will be added here by JS -->
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row g-3 mb-4" id="summaryGrid">
+            <!-- Summary cards will be added here by JS -->
+        </div>
+
+        <!-- Main Area: Field List + Chart -->
+        <div class="row g-3">
+            <div class="col-lg-2 col-md-3"> <!-- Responsive column for field list -->
+                <h6>Field Presence Overview</h6>
+                <div class="field-list" id="fieldList">
+                    <!-- Field buttons will be added here by JS -->
+                </div>
+            </div>
+            <div class="col-lg-10 col-md-9"> <!-- Responsive column for chart -->
+                 <h6>Comparison Chart</h6>
+                <div class="chart-area card card-body shadow-sm">
+                    <div id="mainChart"></div> <!-- Plotly target div -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Modal for Details Panel -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable"> <!-- Wider modal (XL) -->
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="detailModalLabel">Details</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="panelBody">
+                    <!-- Panel content will be added here by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+    <script>
+        /* ----------------- Globals ----------------- */
+        let reportMeta = {};
+        let reportData = {};
+        let selectedRuns = [];
+        // Let's define a list of key fields to show in the grouped chart
+        const keyFieldsForChart = ['title', 'abstract', 'authors', 'doi', 'references_count', 'keywords'];
+        let activeFieldForModal = null; // Track which field the modal is showing
+        let displayMode = 'percent'; // 'percent' | 'count'
+        let detailModal; // Bootstrap modal instance
+
+        /* ----------------- Fetch & Init ----------------- */
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('reports_manifest.json')
+                .then(r => r.json())
+                .then(m => {
+                    reportMeta = m;
+                    return Promise.all(
+                        Object.entries(m).map(([id, meta]) =>
+                            fetch(meta.data_file)
+                            .then(r => r.json())
+                            .then(d => (reportData[id] = d))
+                            .catch(e => console.error(`Failed to load data for ${id}: ${e}`)) // Catch individual load errors
+                        )
+                    );
+                })
+                .then(() => {
+                    // Filter out runs where data failed to load
+                    const loadedRunIds = Object.keys(reportData);
+                    reportMeta = Object.entries(reportMeta)
+                                     .filter(([id]) => loadedRunIds.includes(id))
+                                     .reduce((obj, [key, value]) => { obj[key] = value; return obj; }, {});
+                    initApp();
+                 })
+                .catch(e => {
+                    console.error("Initialization failed:", e);
+                    document.body.innerHTML = `<div class="alert alert-danger m-5" role="alert">Failed to initialize report data. Check console for errors. Error: ${e.message}</div>`;
+                });
+        });
+
+        /* ----------------- App Initialization ----------------- */
+        function initApp() {
+            if (Object.keys(reportMeta).length === 0) {
+                 document.body.innerHTML = `<div class="alert alert-warning m-5" role="alert">No valid report data could be loaded. Please check the data files and manifest.</div>`;
+                 return;
+            }
+            detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            buildToolbar();
+            buildSummaryCards();
+            buildFieldList();
+            renderChart(); // Initial chart render
+        }
+
+        /* ----------------- UI BUILDERS ----------------- */
+        function buildToolbar() {
+            const bar = document.getElementById('toolbar');
+            bar.innerHTML = '';
+            selectedRuns = []; // Reset selected runs
+
+            Object.keys(reportMeta).forEach((run) => {
+                const div = document.createElement('div');
+                div.className = 'form-check form-check-inline'; // Inline checks
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'form-check-input';
+                cb.checked = true; // Default check all
+                cb.value = run;
+                cb.id = `check-${run}`;
+                cb.addEventListener('change', handleRunToggle);
+                selectedRuns.push(run); // Add to selected
+
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.htmlFor = cb.id;
+                label.textContent = run;
+
+                div.append(cb, label);
+                bar.append(div);
+            });
+
+            // Metric toggle button
+            const metricBtn = document.createElement('button');
+            metricBtn.className = 'btn btn-info btn-sm ms-auto'; // Push subsequent buttons right
+            metricBtn.textContent = displayMode === 'percent' ? '% Mode' : '# Mode';
+            metricBtn.title = 'Toggle between percentage and count view';
+            metricBtn.addEventListener('click', () => {
+                displayMode = displayMode === 'percent' ? 'count' : 'percent';
+                metricBtn.textContent = displayMode === 'percent' ? '% Mode' : '# Mode';
+                updateFieldBadges();
+                renderChart(); // Re-render chart with new mode
+                if (activeFieldForModal) { // Re-render modal if open
+                    openPanel(activeFieldForModal);
+                }
+            });
+            bar.append(metricBtn);
+
+            // Dark mode toggle button
+            const modeBtn = document.createElement('button');
+            modeBtn.className = 'btn btn-secondary btn-sm';
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            modeBtn.innerHTML = currentTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+            modeBtn.title = 'Toggle light/dark theme';
+            modeBtn.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                modeBtn.innerHTML = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+                updateChartColors(); // Update chart colors immediately
+                 if (activeFieldForModal) { // Re-render modal to reflect theme
+                    openPanel(activeFieldForModal);
+                }
+            });
+            bar.append(modeBtn);
+        }
+
+        function handleRunToggle(e) {
+            const cb = e.target;
+            const runId = cb.value;
+            if (cb.checked) {
+                if (!selectedRuns.includes(runId)) {
+                    selectedRuns.push(runId);
+                }
+            } else {
+                if (selectedRuns.length <= 1) { // Prevent unchecking last one
+                    cb.checked = true;
+                    // Maybe add a small visual feedback like a shake?
+                    cb.closest('.form-check').classList.add('shake');
+                    setTimeout(()=> cb.closest('.form-check').classList.remove('shake'), 500);
+                    return;
+                }
+                selectedRuns = selectedRuns.filter((r) => r !== runId);
+            }
+            // Maintain original definition order from manifest
+            selectedRuns.sort((a, b) => Object.keys(reportMeta).indexOf(a) - Object.keys(reportMeta).indexOf(b));
+            updateFieldBadges();
+            renderChart();
+             if (activeFieldForModal) { // Update modal if open
+                 openPanel(activeFieldForModal);
+             }
+        }
+
+        /* ----------------- Summary Cards ----------------- */
+        function buildSummaryCards() {
+            const grid = document.getElementById('summaryGrid');
+            grid.innerHTML = '';
+            Object.entries(reportData).forEach(([id, d]) => {
+                const col = document.createElement('div');
+                col.className = 'col-xl col-lg-4 col-md-6 col-sm-12'; // More flexible columns
+
+                const card = document.createElement('div');
+                card.className = 'card h-100 shadow-sm';
+
+                const cardBody = document.createElement('div');
+                cardBody.className = 'card-body d-flex flex-column';
+
+                const title = document.createElement('h5');
+                title.className = 'card-title text-primary mb-1';
+                title.textContent = id;
+
+                const count = document.createElement('p');
+                count.className = 'display-6 fw-semibold mb-0';
+                count.textContent = d.processed_files?.toLocaleString() ?? 'N/A';
+
+                const sub1 = document.createElement('p');
+                sub1.className = 'card-text text-muted mb-1';
+                sub1.textContent = 'files processed';
+
+                const sub2 = document.createElement('p');
+                sub2.className = `card-text mt-auto pt-2 ${d.error_files_count > 0 ? 'text-danger fw-bold' : 'text-muted'}`;
+                sub2.textContent = `Errors: ${d.error_files_count?.toLocaleString() ?? 'N/A'}`;
+
+                cardBody.append(title, count, sub1, sub2);
+                card.append(cardBody);
+                col.append(card);
+                grid.append(col);
+            });
+        }
+
+        /* ----------------- Field List & Badges ----------------- */
+        function buildFieldList() {
+           const sampleRunId = Object.keys(reportData)[0];
+           if (!sampleRunId) return;
+           const sample = reportData[sampleRunId];
+           const fields = Object.keys(sample.field_presence_counts || {}).sort();
+
+           const list = document.getElementById('fieldList');
+           list.innerHTML = '';
+
+           fields.forEach((f) => {
+                const btn = document.createElement('button');
+                btn.className = 'field-btn btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center mb-1';
+                btn.dataset.field = f;
+                btn.addEventListener('click', () => {
+                    activeFieldForModal = f; // Set the field for the modal
+                    // Highlight the selected button in the list
+                    document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-secondary'));
+                     document.querySelectorAll('.field-btn').forEach(b => b.classList.add('btn-outline-secondary')); // Reset others
+                    btn.classList.remove('btn-outline-secondary');
+                    btn.classList.add('active', 'btn-primary'); // Use primary color for active
+                    // No need to re-render main chart here, just open panel
+                    openPanel(f);
+                });
+
+                const fieldNameSpan = document.createElement('span');
+                fieldNameSpan.textContent = f;
+                fieldNameSpan.style.marginRight = '5px'; // Space between name and badge
+
+                const badgeContainer = document.createElement('span'); // Container for alignment
+                badgeContainer.className = 'badge-container';
+
+                const badge = document.createElement('span');
+                badge.className = 'badge custom-badge rounded-pill'; // Base badge classes
+                badgeContainer.appendChild(badge)
+
+                btn.append(fieldNameSpan, badgeContainer);
+                list.append(btn);
+            });
+            updateFieldBadges();
+        }
+
+        // Helper to calculate stats
+        function calculateFieldStats(field) {
+            const values = selectedRuns.map(run => {
+                const d = reportData[run];
+                if (!d) return null; // No data for this run
+                const count = d.field_presence_counts?.[field] ?? 0;
+                const total = d.processed_files ?? 0;
+                if (displayMode === 'percent') {
+                    return total === 0 ? 0 : (count / total) * 100;
+                } else {
+                    return count;
+                }
+            }).filter(v => v !== null); // Filter out nulls where run data was missing
+
+             if (values.length === 0) return { avg: 0, min: 0, max: 0, count: 0 };
+
+             const sum = values.reduce((a, b) => a + b, 0);
+             const avg = sum / values.length;
+             const min = Math.min(...values);
+             const max = Math.max(...values);
+
+             return { avg, min, max, count: values.length };
+        }
+
+
+        function updateFieldBadges() {
+            document.querySelectorAll('.field-btn').forEach((btn) => {
+                const field = btn.dataset.field;
+                const badge = btn.querySelector('.badge');
+                if (!badge) return;
+
+                if (!selectedRuns.length) {
+                    badge.innerHTML = '-'; // Clear content
+                    badge.className = 'badge custom-badge rounded-pill bg-light text-dark';
+                    return;
+                }
+
+                try {
+                    const stats = calculateFieldStats(field);
+                    let badgeClass = 'bg-secondary'; // Default/count color
+
+                    if (displayMode === 'percent') {
+                        badge.innerHTML = `${stats.avg.toFixed(0)}% <span class="badge-stats">(${stats.min.toFixed(0)}-${stats.max.toFixed(0)}%)</span>`;
+                        if (stats.avg > 90) badgeClass = 'bg-success';
+                        else if (stats.avg > 70) badgeClass = 'bg-warning text-dark';
+                        else badgeClass = 'bg-danger';
+                    } else {
+                         badge.innerHTML = `${stats.avg.toLocaleString(undefined, {maximumFractionDigits:0})} <span class="badge-stats">(${stats.min.toLocaleString()}-${stats.max.toLocaleString()})</span>`;
+                         badgeClass = 'bg-secondary'; // Use secondary for count mode
+                    }
+                     badge.className = `badge custom-badge rounded-pill ${badgeClass}`;
+
+                } catch (error) {
+                    console.error(`Error updating badge for field ${field}:`, error);
+                    badge.innerHTML = 'Err';
+                    badge.className = 'badge custom-badge rounded-pill bg-dark';
+                }
+            });
+        }
+
+        /* ----------------- Chart (Plotly Grouped Bar) ----------------- */
+        function renderChart() {
+            const chartDiv = document.getElementById('mainChart');
+            if (!selectedRuns.length || !reportData) {
+                Plotly.purge(chartDiv);
+                chartDiv.innerHTML = '<p class="text-center text-muted mt-5">Select runs to view comparison chart.</p>';
+                return;
+            }
+
+            // Filter keyFieldsForChart to only include fields actually present in the data
+            const firstRunData = reportData[selectedRuns[0]];
+            const availableKeyFields = keyFieldsForChart.filter(f => firstRunData?.field_presence_counts?.hasOwnProperty(f));
+
+            if (availableKeyFields.length === 0) {
+                 Plotly.purge(chartDiv);
+                chartDiv.innerHTML = '<p class="text-center text-muted mt-5">None of the key fields for charting were found in the selected reports.</p>';
+                return;
+            }
+
+            const traces = availableKeyFields.map(field => {
+                const values = selectedRuns.map(run => {
+                    const d = reportData[run];
+                     if (!d) return 0;
+                    const count = d.field_presence_counts?.[field] ?? 0;
+                    const total = d.processed_files ?? 0;
+                    if (displayMode === 'percent') {
+                        return total === 0 ? 0 : (count / total) * 100;
+                    } else {
+                        return count;
+                    }
+                });
+                return {
+                    x: selectedRuns, // Runs on X-axis for grouped vertical bars
+                    y: values,
+                    name: field,
+                    type: 'bar',
+                    text: values.map(v => (displayMode === 'percent' ? v.toFixed(1) + '%' : v.toLocaleString())), // Text on bars
+                    textposition: 'none', // Or 'auto', 'outside' - disable for now to avoid clutter
+                    hoverinfo: 'x+y+name', // Show Run, Value, Field Name on hover
+                };
+            });
+
+            const layout = {
+                title: `Comparison of Key Fields Across Runs`,
+                barmode: 'group', // Group bars per run
+                xaxis: {
+                    title: 'Selected Runs',
+                    automargin: true,
+                    tickangle: selectedRuns.length > 4 ? -45 : 0, // Angle ticks if many runs
+                },
+                yaxis: {
+                    title: displayMode === 'percent' ? '% Present' : 'Count Present',
+                    range: displayMode === 'percent' ? [0, 100] : null,
+                    automargin: true,
+                },
+                margin: { l: 60, r: 20, t: 50, b: selectedRuns.length > 4 ? 100 : 50 }, // Adjust margins dynamically (esp. bottom)
+                legend: {
+                    orientation: "h", // Horizontal legend
+                    yanchor: "bottom",
+                    y: -0.3, // Position legend below x-axis (adjust if needed based on bottom margin)
+                    xanchor: "center",
+                    x: 0.5
+                },
+                hovermode: 'closest' // Improve hover behavior for grouped bars
+            };
+
+            Plotly.react(chartDiv, traces, layout, {responsive: true}); // Use react for efficient updates
+            updateChartColors(); // Apply colors
+        }
+
+
+        function updateChartColors() {
+            const chartDiv = document.getElementById('mainChart');
+            if (!chartDiv || !chartDiv.data) return;
+
+            const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            const isDark = currentTheme === 'dark';
+
+            // Define color palettes (use Plotly defaults or define custom ones)
+            // Plotly's default palette is generally okay, but we can force consistency
+            // const colorPalette = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+
+            const layoutUpdate = {
+                plot_bgcolor: isDark ? '#212529' : '#ffffff',
+                paper_bgcolor: isDark ? '#212529' : '#ffffff',
+                'font.color': isDark ? '#dee2e6' : '#212529',
+                'xaxis.gridcolor': isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                'yaxis.gridcolor': isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+                'xaxis.zerolinecolor': isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                'yaxis.zerolinecolor': isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                'xaxis.linecolor': isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                'yaxis.linecolor': isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
+                'legend.bgcolor': isDark ? 'rgba(33, 37, 41, 0.8)' : 'rgba(255, 255, 255, 0.8)', // Semi-transparent legend background
+            };
+
+            // If needed, update trace colors explicitly here
+            // const traceUpdate = { 'marker.color': colorPalette }; // Apply to all traces if needed
+
+            try {
+                 // Only update layout colors, let Plotly manage trace colors unless specified
+                Plotly.update(chartDiv, {}, layoutUpdate);
+            } catch (error) {
+                console.warn("Plotly layout update failed:", error);
+                 // Attempt a full react as fallback
+                 // Plotly.react(chartDiv, chartDiv.data, { ...chartDiv.layout, ...layoutUpdate });
+            }
+        }
+
+
+        /* ----------------- Panel / Modal ----------------- */
+        function openPanel(field) {
+            activeFieldForModal = field; // Keep track of the currently viewed field
+            const titleEl = document.getElementById('detailModalLabel');
+            const bodyEl = document.getElementById('panelBody');
+
+            titleEl.textContent = `Field Details: ${field}`;
+            bodyEl.innerHTML = `<div class="text-center p-4"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading details...</div>`;
+             detailModal.show(); // Show modal immediately with loading indicator
+
+            // Generate content slightly delayed to allow modal animation
+            setTimeout(() => {
+                bodyEl.innerHTML = ''; // Clear loading indicator
+
+                // Prepare comparison data if exactly two runs are selected
+                let comparisonData = null;
+                if (selectedRuns.length === 2) {
+                    const runA_id = selectedRuns[0];
+                    const runB_id = selectedRuns[1];
+                    const dataA = reportData[runA_id];
+                    const dataB = reportData[runB_id];
+                    if (dataA && dataB) { // Only compare if both have data
+                        const statsA = calculateFieldStats(field); // Recalculate for the specific field, using current displayMode
+                        const statsB = calculateFieldStats(field); // Need to adjust calculateFieldStats to take runId maybe? Or calculate individually here.
+
+                         // Let's recalculate specific values for comparison
+                         const valA = displayMode === 'percent'
+                           ? (dataA.processed_files === 0 ? 0 : ((dataA.field_presence_counts?.[field] ?? 0) / dataA.processed_files) * 100)
+                           : (dataA.field_presence_counts?.[field] ?? 0);
+                         const valB = displayMode === 'percent'
+                           ? (dataB.processed_files === 0 ? 0 : ((dataB.field_presence_counts?.[field] ?? 0) / dataB.processed_files) * 100)
+                           : (dataB.field_presence_counts?.[field] ?? 0);
+
+                         comparisonData = {
+                             runA: runA_id, valA: valA,
+                             runB: runB_id, valB: valB,
+                             diff: valB - valA,
+                         };
+                    }
+                }
+
+
+                // Display comparison first if available
+                if (comparisonData) {
+                     const compDiv = document.createElement('div');
+                     compDiv.className = 'alert alert-info'; // Use alert for visibility
+                     const diffValStr = displayMode === 'percent' ? comparisonData.diff.toFixed(1) + ' pp' : comparisonData.diff.toLocaleString(); // pp = percentage points
+                     const diffClass = comparisonData.diff > 0 ? 'diff-positive' : comparisonData.diff < 0 ? 'diff-negative' : '';
+                     const diffSign = comparisonData.diff > 0 ? '+' : '';
+                     compDiv.innerHTML = `
+                        <h5 class="alert-heading">Comparison: ${comparisonData.runB} vs ${comparisonData.runA}</h5>
+                        <p class="mb-1">
+                           ${comparisonData.runA}: ${displayMode === 'percent' ? comparisonData.valA.toFixed(1) + '%' : comparisonData.valA.toLocaleString()}
+                           <br/>
+                           ${comparisonData.runB}: ${displayMode === 'percent' ? comparisonData.valB.toFixed(1) + '%' : comparisonData.valB.toLocaleString()}
+                        </p>
+                        <hr>
+                        <p class="mb-0"><strong>Difference: <span class="${diffClass}">${diffSign}${diffValStr}</span></strong></p>
+                     `;
+                     bodyEl.appendChild(compDiv);
+                }
+
+
+                // Display details for each selected run
+                selectedRuns.forEach((run) => {
+                    const d = reportData[run];
+                    if (!d) {
+                        bodyEl.insertAdjacentHTML('beforeend', `<div class="mb-4"><h4>${run}</h4><p class="text-warning">Report data not found.</p></div><hr class="my-3">`);
+                        return;
+                    }
+
+                    const present = d.field_presence_counts?.[field] ?? 0;
+                    const total = d.processed_files ?? 0;
+                    const missing = total - present;
+                    const perc = total === 0 ? 0 : ((present / total) * 100);
+                    const sourceCounts = d.field_source_counts?.[field] ?? null;
+                    const presentFiles = d.field_present_in_files?.[field] ?? null;
+
+                    const section = document.createElement('div');
+                    section.className = 'mb-4';
+
+                    const runTitle = document.createElement('h4');
+                    runTitle.textContent = run;
+                    section.appendChild(runTitle);
+
+                    // Add metadata if available in manifest
+                    if (reportMeta[run]?.description) {
+                         const metaP = document.createElement('p');
+                         metaP.className = 'text-muted small';
+                         metaP.textContent = reportMeta[run].description;
+                         section.appendChild(metaP);
+                    }
+
+
+                    const statsPara = document.createElement('p');
+                    statsPara.innerHTML = `<strong>Present:</strong> ${present.toLocaleString()} (${perc.toFixed(1)}%)<span class="mx-3">|</span><strong>Missing:</strong> ${missing.toLocaleString()} <span class="text-muted"> (out of ${total.toLocaleString()} total)</span>`;
+                    section.appendChild(statsPara);
+
+                    // Source Breakdown Table
+                    if (sourceCounts && Object.keys(sourceCounts).length > 0) {
+                        const table = document.createElement('table');
+                        table.className = 'table table-sm table-bordered table-striped caption-top';
+                        const caption = table.createCaption(); caption.textContent = 'Counts by Source';
+                        const thead = table.createTHead();
+                        thead.insertRow().innerHTML = '<th>Source</th><th class="text-end">Count</th>';
+                        const tbody = table.createTBody();
+                        Object.entries(sourceCounts).sort(([, countA], [, countB]) => countB - countA).forEach(([src, cnt]) => {
+                            tbody.insertRow().innerHTML = `<td>${src}</td><td class="text-end">${cnt.toLocaleString()}</td>`;
+                        });
+                        section.appendChild(table);
+                    } else if (sourceCounts) {
+                        section.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic small">No source information available for this field.</p>');
+                    }
+
+                    // Present File List
+                    if (presentFiles && presentFiles.length > 0) {
+                        const details = document.createElement('details');
+                        const summary = document.createElement('summary');
+                        summary.className = 'mb-2';
+                        summary.textContent = `Files where field is present (${presentFiles.length.toLocaleString()})`;
+                        details.appendChild(summary);
+                        const ul = document.createElement('ul');
+                        ul.className = 'list-unstyled';
+                        presentFiles.slice(0, 100).forEach((f) => {
+                           ul.insertAdjacentHTML('beforeend', `<li class="text-muted small font-monospace">${f}</li>`); // Smaller monospace font
+                        });
+                        if (presentFiles.length > 100) {
+                             ul.insertAdjacentHTML('beforeend', `<li class="fst-italic small mt-1">... (${(presentFiles.length - 100).toLocaleString()} more not shown)</li>`);
+                        }
+                        details.appendChild(ul);
+                        section.appendChild(details);
+                    }
+
+                    bodyEl.appendChild(section);
+                    if (selectedRuns.indexOf(run) < selectedRuns.length - 1) {
+                         bodyEl.insertAdjacentHTML('beforeend', '<hr class="my-3">');
+                    }
+                });
+            }, 100); // Short delay for modal transition
+
+        }
+
+         // Clear active field when modal is closed
+        document.getElementById('detailModal').addEventListener('hidden.bs.modal', () => {
+            activeFieldForModal = null;
+             // Deactivate field button visually
+             document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-secondary'));
+             document.querySelectorAll('.field-btn').forEach(b => b.classList.add('btn-outline-secondary')); // Reset all to outline
+        });
+
+    </script>
+    <!-- Simple CSS for shake animation -->
+    <style>
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+    </style>
+</body>
+</html>
