@@ -1,12 +1,14 @@
+/* ----------------- Globals ----------------- */
 let reportMeta = {};
 let reportData = {};
 let selectedRuns = [];
 const keyFieldsForChart = ['title', 'abstract', 'authors', 'doi', 'references_count', 'keywords'];
-let activeFieldForModal = null; // Track which field the metadata modal is showing
+// let activeFieldForModal = null; // No longer needed for the old modal
 let displayMode = 'percent'; // 'percent' | 'count'
-let detailModal; // Bootstrap modal instance for metadata
+// let detailModal; // Removed old modal instance
+let fieldDetailModal; // *** NEW: Bootstrap modal instance for Field Details ***
 let ragContextModal; // Bootstrap modal instance for RAG context
-let ragCueDetailModal; // *** NEW: Bootstrap modal instance for RAG Cue Details ***
+let ragCueDetailModal; // Bootstrap modal instance for RAG Cue Details
 
 /* ----------------- Fetch & Init ----------------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -69,13 +71,14 @@ function initApp() {
          document.body.innerHTML = `<div class="alert alert-warning m-5" role="alert">No valid report data could be loaded. Please check the data files listed in 'reports_manifest.json' and the manifest file itself.</div>`;
          return;
     }
-    detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+    // detailModal = new bootstrap.Modal(document.getElementById('detailModal')); // Removed old modal
+    fieldDetailModal = new bootstrap.Modal(document.getElementById('fieldDetailModal')); // *** NEW: Init Field Detail modal ***
     ragContextModal = new bootstrap.Modal(document.getElementById('ragContextModal')); // Init RAG context modal
-    ragCueDetailModal = new bootstrap.Modal(document.getElementById('ragCueDetailModal')); // *** NEW: Init RAG Cue Detail modal ***
+    ragCueDetailModal = new bootstrap.Modal(document.getElementById('ragCueDetailModal')); // Init RAG Cue Detail modal
     buildToolbar();
     buildSummaryCards();
     buildFieldList();
-    renderChart(); // Initial chart render
+    renderChart(); // Initial chart render (will handle visibility)
     renderRagAnalysis(); // Initial RAG table render
 }
 
@@ -123,12 +126,9 @@ function buildToolbar() {
         displayMode = displayMode === 'percent' ? 'count' : 'percent';
         metricBtn.textContent = displayMode === 'percent' ? '% Mode' : '# Mode';
         updateFieldBadges();
-        renderChart(); // Re-render chart with new mode
+        renderChart(); // Re-render chart with new mode (handles visibility)
         renderRagAnalysis(); // Re-render RAG table
-        if (activeFieldForModal) { // Re-render metadata modal if open
-            openPanel(activeFieldForModal);
-        }
-        // No need to re-render RAG context modal as it shows raw text
+        // No need to update field detail modal unless it's open, which is handled separately
     });
     bar.append(metricBtn);
 
@@ -145,10 +145,7 @@ function buildToolbar() {
         document.documentElement.setAttribute('data-bs-theme', newTheme);
         modeBtn.innerHTML = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
         updateChartColors(); // Update chart colors immediately
-         if (activeFieldForModal) { // Re-render metadata modal to reflect theme
-            openPanel(activeFieldForModal);
-        }
-        // No need to re-render RAG context modal as it shows raw text
+        // No need to re-render modals unless open, handled separately
     });
     bar.append(modeBtn);
 }
@@ -173,12 +170,9 @@ function handleRunToggle(e) {
     // Maintain original definition order from manifest
     selectedRuns.sort((a, b) => Object.keys(reportMeta).indexOf(a) - Object.keys(reportMeta).indexOf(b));
     updateFieldBadges();
-    renderChart();
+    renderChart(); // Update chart (handles visibility)
     renderRagAnalysis(); // Update RAG table too
-     if (activeFieldForModal) { // Update metadata modal if open
-         openPanel(activeFieldForModal);
-     }
-     // No need to update RAG context modal unless it's currently open for a specific cue
+    // No need to update modals unless open
 }
 
 /* ----------------- Summary Cards ----------------- */
@@ -258,16 +252,15 @@ function buildFieldList() {
 
    fields.forEach((f) => {
         const btn = document.createElement('button');
-        btn.className = 'field-btn btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center mb-1';
+        // *** Add 'clickable' class ***
+        btn.className = 'field-btn clickable btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center mb-1';
         btn.dataset.field = f;
+        // *** Update click handler to call new modal function ***
         btn.addEventListener('click', () => {
-            activeFieldForModal = f; // Set the field for the modal
             // Highlight the selected button in the list
-            document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-secondary'));
-             document.querySelectorAll('.field-btn').forEach(b => b.classList.add('btn-outline-secondary')); // Reset others
-            btn.classList.remove('btn-outline-secondary');
-            btn.classList.add('active', 'btn-primary'); // Use primary color for active
-            openPanel(f); // Open metadata panel
+            document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            openFieldDetailModal(f); // *** Call new modal function ***
         });
 
         const fieldNameSpan = document.createElement('span');
@@ -287,7 +280,7 @@ function buildFieldList() {
     updateFieldBadges();
 }
 
-// Helper to calculate stats for metadata fields
+// Helper to calculate stats for metadata fields (Unchanged)
 function calculateFieldStats(field) {
     const values = selectedRuns.map(run => {
         const d = reportData[run];
@@ -312,6 +305,7 @@ function calculateFieldStats(field) {
 }
 
 
+// UpdateFieldBadges (Unchanged)
 function updateFieldBadges() {
     document.querySelectorAll('.field-btn').forEach((btn) => {
         const field = btn.dataset.field;
@@ -349,10 +343,30 @@ function updateFieldBadges() {
 
 /* ----------------- Chart (Plotly Grouped Bar) ----------------- */
 function renderChart() {
+    const chartContainer = document.getElementById('chartContainer'); // Target the container div
     const chartDiv = document.getElementById('mainChart');
-    if (!selectedRuns.length || !reportData) {
+
+    // *** Conditional Display Logic ***
+    if (selectedRuns.length <= 1) {
+        Plotly.purge(chartDiv); // Clear any existing chart
+        chartContainer.classList.add('hidden'); // Hide the container
+        // Add message only if the container doesn't already have one
+        if (!chartContainer.querySelector('p')) {
+             chartContainer.innerHTML = '<p class="text-center text-muted mt-5">Select two or more runs to view comparison chart.</p>';
+        }
+        return;
+    } else {
+        chartContainer.classList.remove('hidden'); // Ensure container is visible
+        // Restore chart div if message was there
+        if (!document.getElementById('mainChart')) {
+             chartContainer.innerHTML = '<div id="mainChart"></div>';
+        }
+    }
+    // *** END Conditional Display Logic ***
+
+    if (!reportData) { // Should not happen if runs are selected, but good check
         Plotly.purge(chartDiv);
-        chartDiv.innerHTML = '<p class="text-center text-muted mt-5">Select runs to view comparison chart.</p>';
+        chartDiv.innerHTML = '<p class="text-center text-muted mt-5">Report data is missing.</p>';
         return;
     }
 
@@ -419,14 +433,15 @@ function renderChart() {
         hovermode: 'closest' // Improve hover behavior for grouped bars
     };
 
-    Plotly.react(chartDiv, traces, layout, {responsive: true}); // Use react for efficient updates
+    Plotly.react('mainChart', traces, layout, {responsive: true}); // Use react for efficient updates, target the inner div
     updateChartColors(); // Apply colors
 }
 
 
+// updateChartColors (Unchanged)
 function updateChartColors() {
     const chartDiv = document.getElementById('mainChart');
-    if (!chartDiv || !chartDiv.data) return;
+    if (!chartDiv || !chartDiv.data) return; // Check if chart exists
 
     const currentTheme = document.documentElement.getAttribute('data-bs-theme');
     const isDark = currentTheme === 'dark';
@@ -447,181 +462,162 @@ function updateChartColors() {
     try {
         Plotly.update(chartDiv, {}, layoutUpdate);
     } catch (error) {
-        console.warn("Plotly layout update failed:", error);
+        // Ignore errors if the chart div doesn't exist (e.g., when hidden)
+        if (!document.getElementById('mainChart')) {
+             console.debug("Chart div not found, skipping color update.");
+        } else {
+            console.warn("Plotly layout update failed:", error);
+        }
     }
 }
 
 
-/* ----------------- Metadata Panel / Modal ----------------- */
-function openPanel(field) {
-    activeFieldForModal = field; // Keep track of the currently viewed field
-    const titleEl = document.getElementById('detailModalLabel');
-    const bodyEl = document.getElementById('panelBody');
+/* ----------------- Field Detail Modal ----------------- */
+function openFieldDetailModal(fieldName) {
+    const titleEl = document.getElementById('fieldDetailModalLabel');
+    const bodyEl = document.getElementById('fieldDetailBody');
 
-    titleEl.textContent = `Field Details: ${field}`;
+    titleEl.textContent = `Details for Field: ${fieldName}`;
     bodyEl.innerHTML = `<div class="text-center p-4"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading details...</div>`;
-     detailModal.show(); // Show modal immediately with loading indicator
+    fieldDetailModal.show();
 
-    // Generate content slightly delayed to allow modal animation
-    setTimeout(() => {
-        bodyEl.innerHTML = ''; // Clear loading indicator
+    // Aggregate data across selected runs
+    const presentFilesData = [];
+    const missingFilesData = [];
+    let dataStructureExists = false;
 
-        // Prepare comparison data if exactly two runs are selected
-        let comparisonData = null;
-        if (selectedRuns.length === 2) {
-            const runA_id = selectedRuns[0];
-            const runB_id = selectedRuns[1];
-            const dataA = reportData[runA_id];
-            const dataB = reportData[runB_id];
-            if (dataA && dataB) { // Only compare if both have data
-                 const valA = displayMode === 'percent'
-                   ? (dataA.processed_files === 0 ? 0 : ((dataA.field_presence_counts?.[field] ?? 0) / dataA.processed_files) * 100)
-                   : (dataA.field_presence_counts?.[field] ?? 0);
-                 const valB = displayMode === 'percent'
-                   ? (dataB.processed_files === 0 ? 0 : ((dataB.field_presence_counts?.[field] ?? 0) / dataB.processed_files) * 100)
-                   : (dataB.field_presence_counts?.[field] ?? 0);
+    selectedRuns.forEach(runId => {
+        const runData = reportData[runId];
+        if (!runData) return;
 
-                 comparisonData = {
-                     runA: runA_id, valA: valA,
-                     runB: runB_id, valB: valB,
-                     diff: valB - valA,
-                 };
-            }
+        // Check if the necessary structures exist for this run
+        const hasFileData = runData.field_present_in_files && runData.field_missing_in_files;
+        const hasValueData = runData.field_values_per_file;
+
+        if (hasFileData || hasValueData) {
+            dataStructureExists = true; // Mark that we found *some* relevant data
         }
 
-
-        // Display comparison first if available
-        if (comparisonData) {
-             const compDiv = document.createElement('div');
-             compDiv.className = 'alert alert-info'; // Use alert for visibility
-             const diffValStr = displayMode === 'percent' ? comparisonData.diff.toFixed(1) + ' pp' : comparisonData.diff.toLocaleString(); // pp = percentage points
-             const diffClass = comparisonData.diff > 0 ? 'diff-positive' : comparisonData.diff < 0 ? 'diff-negative' : '';
-             const diffSign = comparisonData.diff > 0 ? '+' : '';
-             compDiv.innerHTML = `
-                <h5 class="alert-heading">Comparison: ${comparisonData.runB} vs ${comparisonData.runA}</h5>
-                <p class="mb-1">
-                   ${comparisonData.runA}: ${displayMode === 'percent' ? comparisonData.valA.toFixed(1) + '%' : comparisonData.valA.toLocaleString()}
-                   <br/>
-                   ${comparisonData.runB}: ${displayMode === 'percent' ? comparisonData.valB.toFixed(1) + '%' : comparisonData.valB.toLocaleString()}
-                </p>
-                <hr>
-                <p class="mb-0"><strong>Difference: <span class="${diffClass}">${diffSign}${diffValStr}</span></strong></p>
-             `;
-             bodyEl.appendChild(compDiv);
-        }
-
-
-        // Display details for each selected run
-        selectedRuns.forEach((run) => {
-            const d = reportData[run];
-            if (!d) {
-                bodyEl.insertAdjacentHTML('beforeend', `<div class="mb-4"><h4>${run}</h4><p class="text-warning">Report data not found.</p></div><hr class="my-3">`);
-                return;
-            }
-
-            const present = d.field_presence_counts?.[field] ?? 0;
-            const total = d.processed_files ?? 0;
-            const missing = total - present;
-            const perc = total === 0 ? 0 : ((present / total) * 100);
-            const sourceCounts = d.field_source_counts?.[field] ?? null;
-            const presentFiles = d.field_present_in_files?.[field] ?? null;
-            const missingFiles = d.field_missing_in_files?.[field] ?? null; // Get missing files
-
-            const section = document.createElement('div');
-            section.className = 'mb-4';
-
-            const runTitle = document.createElement('h4');
-            runTitle.textContent = run;
-            section.appendChild(runTitle);
-
-            // Add metadata if available in manifest
-            if (reportMeta[run]?.description) {
-                 const metaP = document.createElement('p');
-                 metaP.className = 'text-muted small';
-                 metaP.textContent = reportMeta[run].description;
-                 section.appendChild(metaP);
-            }
-
-
-            const statsPara = document.createElement('p');
-            statsPara.innerHTML = `<strong>Present:</strong> ${present.toLocaleString()} (${perc.toFixed(1)}%)<span class="mx-3">|</span><strong>Missing:</strong> ${missing.toLocaleString()} <span class="text-muted"> (out of ${total.toLocaleString()} total)</span>`;
-            section.appendChild(statsPara);
-
-            // Source Breakdown Table
-            if (sourceCounts && Object.keys(sourceCounts).length > 0) {
-                const table = document.createElement('table');
-                table.className = 'table table-sm table-bordered table-striped caption-top';
-                const caption = table.createCaption(); caption.textContent = 'Counts by Source';
-                const thead = table.createTHead();
-                thead.insertRow().innerHTML = '<th>Source</th><th class="text-end">Count</th>';
-                const tbody = table.createTBody();
-                Object.entries(sourceCounts).sort(([, countA], [, countB]) => countB - countA).forEach(([src, cnt]) => {
-                    tbody.insertRow().innerHTML = `<td>${htmlEscape(src)}</td><td class="text-end">${cnt.toLocaleString()}</td>`;
-                });
-                section.appendChild(table);
-            } else if (sourceCounts) {
-                section.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic small">No source information available for this field.</p>');
-            }
-
-            // Present File List
-            if (presentFiles && presentFiles.length > 0) {
-                const details = document.createElement('details');
-                const summary = document.createElement('summary');
-                summary.className = 'mb-2';
-                summary.textContent = `Files where field is present (${presentFiles.length.toLocaleString()})`;
-                details.appendChild(summary);
-                const ul = document.createElement('ul');
-                ul.className = 'list-unstyled';
-                presentFiles.slice(0, 100).forEach((f) => {
-                   ul.insertAdjacentHTML('beforeend', `<li class="text-muted small font-monospace">${htmlEscape(f)}</li>`); // Smaller monospace font
-                });
-                if (presentFiles.length > 100) {
-                     ul.insertAdjacentHTML('beforeend', `<li class="fst-italic small mt-1">... (${(presentFiles.length - 100).toLocaleString()} more not shown)</li>`);
-                }
-                details.appendChild(ul);
-                section.appendChild(details);
-            }
-
-             // Missing File List
-            if (missingFiles && missingFiles.length > 0) {
-                const detailsMissing = document.createElement('details');
-                const summaryMissing = document.createElement('summary');
-                summaryMissing.className = 'mb-2';
-                summaryMissing.textContent = `Files where field is missing/empty (${missingFiles.length.toLocaleString()})`;
-                detailsMissing.appendChild(summaryMissing);
-                const ulMissing = document.createElement('ul');
-                ulMissing.className = 'list-unstyled';
-                missingFiles.slice(0, 100).forEach((f) => {
-                   ulMissing.insertAdjacentHTML('beforeend', `<li class="text-muted small font-monospace">${htmlEscape(f)}</li>`); // Smaller monospace font
-                });
-                if (missingFiles.length > 100) {
-                     ulMissing.insertAdjacentHTML('beforeend', `<li class="fst-italic small mt-1">... (${(missingFiles.length - 100).toLocaleString()} more not shown)</li>`);
-                }
-                detailsMissing.appendChild(ulMissing);
-                section.appendChild(detailsMissing);
-            }
-
-
-            bodyEl.appendChild(section);
-            if (selectedRuns.indexOf(run) < selectedRuns.length - 1) {
-                 bodyEl.insertAdjacentHTML('beforeend', '<hr class="my-3">');
-            }
+        // Get files where present and their values
+        const presentInRun = runData.field_present_in_files?.[fieldName] || [];
+        const valuesInRun = runData.field_values_per_file?.[fieldName] || {};
+        presentInRun.forEach(filename => {
+            presentFilesData.push({
+                filename: filename,
+                run_id: runId,
+                value: valuesInRun[filename] // Will be undefined if value wasn't stored, handle later
+            });
         });
-    }, 100); // Short delay for modal transition
 
+        // Get files where missing
+        const missingInRun = runData.field_missing_in_files?.[fieldName] || [];
+        missingInRun.forEach(filename => {
+            missingFilesData.push({
+                filename: filename,
+                run_id: runId
+            });
+        });
+    });
+
+    // Sort files alphabetically
+    presentFilesData.sort((a, b) => a.filename.localeCompare(b.filename));
+    missingFilesData.sort((a, b) => a.filename.localeCompare(b.filename));
+
+    // Helper to format values for display
+    const formatFieldValue = (value) => {
+        if (value === undefined) {
+            return '<span class="value-display missing">Value not recorded</span>';
+        } else if (value === null) {
+            return '<span class="value-display missing">null</span>';
+        } else if (Array.isArray(value)) {
+            if (value.length === 0) {
+                return '<span class="value-display missing">Empty List []</span>';
+            } else {
+                let listHtml = '<ul>';
+                // Limit displayed items for very long lists
+                const itemsToShow = value.slice(0, 20);
+                itemsToShow.forEach(item => {
+                    // Recursively format list items if they are objects/arrays
+                    if (typeof item === 'object' && item !== null) {
+                         listHtml += `<li><pre class="value-display">${htmlEscape(JSON.stringify(item, null, 2))}</pre></li>`;
+                    } else {
+                         listHtml += `<li>${htmlEscape(String(item))}</li>`;
+                    }
+                });
+                 if (value.length > 20) {
+                     listHtml += `<li class="fst-italic text-muted small">... (${value.length - 20} more items not shown)</li>`;
+                 }
+                listHtml += '</ul>';
+                return listHtml;
+            }
+        } else if (typeof value === 'object') {
+            // Pretty print objects/dictionaries
+            return `<pre class="value-display">${htmlEscape(JSON.stringify(value, null, 2))}</pre>`;
+        } else if (typeof value === 'string' && value === '') {
+             return '<span class="value-display missing">Empty String ""</span>';
+        } else {
+            // Handle primitives (string, number, boolean)
+            return `<span class="value-display">${htmlEscape(String(value))}</span>`;
+        }
+    };
+
+
+    // Generate content after a short delay
+    setTimeout(() => {
+        bodyEl.innerHTML = ''; // Clear loading
+
+        if (!dataStructureExists) {
+            bodyEl.innerHTML = '<p class="text-center text-danger">Detailed field data structures (`field_present_in_files`, `field_missing_in_files`, `field_values_per_file`) are missing from all selected report files. Cannot display details.</p>';
+            return;
+        }
+
+        // --- Present Section ---
+        const presentSection = document.createElement('div');
+        presentSection.className = 'file-list-section';
+        presentSection.innerHTML = `<h5>Present In Files (${presentFilesData.length})</h5>`;
+        if (presentFilesData.length > 0) {
+            presentFilesData.forEach(fileInfo => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'file-entry';
+                // *** Display filename and run_id first ***
+                entryDiv.innerHTML = `<span class="filename">${htmlEscape(fileInfo.filename)}</span><span class="run-id">(${htmlEscape(fileInfo.run_id)})</span>`;
+                // *** Then append the formatted value ***
+                entryDiv.innerHTML += formatFieldValue(fileInfo.value);
+                presentSection.appendChild(entryDiv);
+            });
+        } else {
+            presentSection.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic">Field was not present (or value not recorded) in any files across the selected runs.</p>');
+        }
+        bodyEl.appendChild(presentSection);
+
+        // --- Missing Section ---
+        const missingSection = document.createElement('div');
+        missingSection.className = 'file-list-section';
+        missingSection.innerHTML = `<h5>Missing/Empty In Files (${missingFilesData.length})</h5>`;
+        if (missingFilesData.length > 0) {
+             missingFilesData.forEach(fileInfo => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'file-entry';
+                entryDiv.innerHTML = `<span class="filename">${htmlEscape(fileInfo.filename)}</span><span class="run-id">(${htmlEscape(fileInfo.run_id)})</span>`;
+                // Optionally add a placeholder for value if needed:
+                // entryDiv.innerHTML += '<span class="value-display missing">N/A</span>';
+                missingSection.appendChild(entryDiv);
+            });
+        } else {
+             missingSection.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic">Field was present in all files across the selected runs.</p>');
+        }
+        bodyEl.appendChild(missingSection);
+
+    }, 100); // Delay for modal animation
 }
 
- // Clear active field when metadata modal is closed
-document.getElementById('detailModal').addEventListener('hidden.bs.modal', () => {
-    activeFieldForModal = null;
-     // Deactivate field button visually
-     document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-secondary'));
-     document.querySelectorAll('.field-btn').forEach(b => b.classList.add('btn-outline-secondary')); // Reset all to outline
+// Listener to clear active state when Field Detail modal closes
+document.getElementById('fieldDetailModal').addEventListener('hidden.bs.modal', () => {
+     document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active'));
 });
 
 
-/* ----------------- RAG Analysis Rendering ----------------- */
-
+/* ----------------- RAG Analysis Rendering (Unchanged) ----------------- */
 // --- MANUAL MAPPING (Keep this as before) ---
 const attributeToCueMap = {
     "Actionability": ["actionability_claim"],
@@ -659,7 +655,6 @@ const attributeToCueMap = {
     "Triangulation": ["triangulation_statement"]
 };
 // --- END MANUAL MAPPING ---
-
 
 function renderRagAnalysis() {
     console.log("Attempting to render RAG analysis...");
@@ -879,7 +874,7 @@ function openRagContextModal(attributeName, cueName) {
     ragContextModal.show();
 }
 
-/* ----------------- *** NEW: RAG Cue Detail Modal *** ----------------- */
+/* ----------------- RAG Cue Detail Modal (Unchanged) ----------------- */
 function openRagCueDetailModal(attributeName, cueName) {
     const titleEl = document.getElementById('ragCueDetailModalLabel');
     const bodyEl = document.getElementById('ragCueDetailBody');
@@ -1020,7 +1015,7 @@ function openRagCueDetailModal(attributeName, cueName) {
                  notFoundSection.appendChild(fileDiv);
             });
         } else {
-            notFoundSection.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic">Cue was found in all files where it was assessed across the selected runs.</p>');
+             notFoundSection.insertAdjacentHTML('beforeend', '<p class="text-muted fst-italic">Cue was found in all files where it was assessed across the selected runs.</p>');
         }
         bodyEl.appendChild(notFoundSection);
 
@@ -1038,15 +1033,13 @@ function htmlEscape(str) {
          .replace(/</g, '&lt;')
          .replace(/>/g, '&gt;')
          .replace(/"/g, '&quot;')
-         .replace(/'/g, '&#39;');
+         .replace(/'/g, '&apos;');
 }
 
 
-// Clear active field when metadata modal is closed
-document.getElementById('detailModal').addEventListener('hidden.bs.modal', () => {
-    activeFieldForModal = null;
-     document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-secondary'));
-     document.querySelectorAll('.field-btn').forEach(b => b.classList.add('btn-outline-secondary'));
+// Listener to clear active state when Field Detail modal closes
+document.getElementById('fieldDetailModal').addEventListener('hidden.bs.modal', () => {
+     document.querySelectorAll('.field-btn.active').forEach(b => b.classList.remove('active'));
 });
 
 // Helper for defaultdict behavior in JS

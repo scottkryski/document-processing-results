@@ -35,6 +35,23 @@
         .field-btn { font-size: 0.82rem; font-weight: 600; text-align: left; }
         .field-btn .badge-container { min-width: 80px; text-align: right; } /* Ensure badges align nicely */
 
+        /* Style for clickable field buttons */
+        .field-btn.clickable {
+            cursor: pointer;
+        }
+        .field-btn.clickable:hover {
+             background-color: var(--bs-secondary-bg); /* Subtle hover */
+        }
+        .field-btn.clickable.active { /* Keep active style distinct */
+             background-color: var(--bs-primary);
+             color: var(--bs-primary-text-emphasis);
+             border-color: var(--bs-primary);
+        }
+        .field-btn.clickable.active:hover {
+             background-color: var(--bs-primary-bg-subtle); /* Slightly different hover for active */
+        }
+
+
         .badge.custom-badge {
             font-weight: 600; font-size: 0.70rem; /* Slightly smaller */
             padding: 0.15rem 0.4rem; border-radius: 4px; color: #fff;
@@ -50,13 +67,67 @@
 
         .chart-area { min-height: 420px; position: relative; }
         #mainChart { width: 100%; height: 500px; }
+        /* Hide chart area when needed */
+        .chart-area.hidden {
+            display: none;
+        }
+
 
         /* Modal Styles */
-        #detailModal .table { font-size: 0.85rem; margin-top: 0.5rem; }
-        #detailModal details { margin-top: 1rem; }
-        #detailModal summary { cursor: pointer; font-weight: 500; }
-        #detailModal ul { max-height: 200px; overflow-y: auto; font-size: 0.8rem; margin-top: 0.5rem; padding-left: 1.5rem; }
-        #detailModal li { margin-bottom: 2px; }
+        /* Field Detail Modal Styles */
+        #fieldDetailModal .file-list-section {
+            margin-bottom: 1.5rem;
+        }
+        #fieldDetailModal .file-list-section h5 {
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid var(--bs-border-color);
+            padding-bottom: 0.3rem;
+        }
+        #fieldDetailModal .file-entry {
+            margin-bottom: 0.75rem;
+            padding-left: 0.5rem;
+        }
+        #fieldDetailModal .file-entry .filename {
+            font-weight: 500;
+            font-family: var(--bs-font-monospace);
+            font-size: 0.8rem;
+            display: block; /* Ensure filename is on its own line */
+            margin-bottom: 0.1rem;
+        }
+         #fieldDetailModal .file-entry .run-id {
+            font-size: 0.7rem;
+            color: var(--bs-secondary-color);
+            margin-left: 0.5rem;
+         }
+        #fieldDetailModal .file-entry .value-display {
+            font-size: 0.8rem;
+            margin-left: 1rem; /* Indent value */
+            color: var(--bs-emphasis-color);
+            white-space: pre-wrap; /* Allow wrapping for long strings/JSON */
+            word-break: break-word;
+            background-color: var(--bs-secondary-bg); /* Subtle background for value */
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            display: inline-block; /* Fit content */
+            max-width: 95%; /* Prevent overflow */
+        }
+        #fieldDetailModal .file-entry .value-display.missing {
+            color: var(--bs-secondary-color);
+            font-style: italic;
+            background-color: transparent;
+            padding: 0;
+        }
+        #fieldDetailModal .file-entry ul { /* Styling for list values */
+             margin-left: 1rem;
+             padding-left: 1.2rem;
+             font-size: 0.75rem;
+             margin-top: 0.2rem;
+             margin-bottom: 0.2rem;
+        }
+         #fieldDetailModal .file-entry li {
+             margin-bottom: 0.1rem;
+         }
+
         .diff-positive { color: var(--bs-success); }
         .diff-negative { color: var(--bs-danger); }
 
@@ -78,10 +149,25 @@
         #ragAnalysisTable .cue-cell {
             padding-left: 1.5rem; /* Indent cues under attribute */
         }
-        #ragAnalysisTable .context-btn {
+        #ragAnalysisTable .context-btn { /* Kept for potential future use */
             font-size: 0.75rem;
             padding: 0.1rem 0.3rem;
         }
+        /* Style for clickable cue cells */
+        #ragAnalysisTable .cue-cell-clickable {
+            cursor: pointer;
+            color: var(--bs-link-color); /* Use link color */
+            text-decoration: underline;
+            text-decoration-color: var(--bs-link-color);
+            text-underline-offset: 3px;
+        }
+        #ragAnalysisTable .cue-cell-clickable:hover {
+            color: var(--bs-link-hover-color);
+            text-decoration-color: var(--bs-link-hover-color);
+        }
+
+
+        /* RAG Context Modal Styles */
         #ragContextModal .modal-body {
             font-size: 0.8rem; /* Smaller font in context modal */
         }
@@ -104,6 +190,59 @@
             margin-bottom: 0;
          }
 
+        /* Styling for the RAG Cue Detail Modal */
+        #ragCueDetailModal .file-section {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.375rem; /* Match card radius */
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background-color: var(--bs-tertiary-bg); /* Slightly different background */
+        }
+         #ragCueDetailModal .file-section h6 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+         }
+         #ragCueDetailModal .file-section p {
+            margin-bottom: 0.25rem;
+            font-size: 0.85rem;
+         }
+         #ragCueDetailModal .file-section pre {
+            background-color: var(--bs-secondary-bg);
+            padding: 0.5rem;
+            border-radius: 4px;
+            max-height: 150px; /* Limit context height */
+            overflow-y: auto;
+            white-space: pre-wrap; /* Allow wrapping */
+            word-break: break-word;
+            font-size: 0.75rem; /* Smaller font for context */
+            margin-top: 0.5rem;
+         }
+         #ragCueDetailModal details { margin-top: 0.5rem; }
+         #ragCueDetailModal summary { cursor: pointer; font-weight: 500; font-size: 0.8rem; }
+         #ragCueDetailModal .context-doc {
+            border-bottom: 1px solid var(--bs-border-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+         }
+         #ragCueDetailModal .context-doc:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+         }
+         #ragCueDetailModal .evidence-quote {
+             font-style: italic;
+             color: var(--bs-emphasis-color);
+             margin-left: 1rem;
+             display: block; /* Ensure it takes its own line */
+             margin-bottom: 0.5rem;
+         }
+         #ragCueDetailModal .no-evidence {
+             font-style: italic;
+             color: var(--bs-secondary-color);
+             margin-left: 1rem;
+             display: block;
+             margin-bottom: 0.5rem;
+         }
+
     </style>
 </head>
 <body>
@@ -123,47 +262,49 @@
             <!-- Summary cards will be added here by JS -->
         </div>
 
-        <!-- Main Area: Field List + Chart -->
+        <!-- *** UPDATED Main Area Layout *** -->
         <div class="row g-3">
-            <div class="col-lg-2 col-md-3"> <!-- Responsive column for field list -->
+            <div class="col-lg-2 col-md-3"> <!-- Left column for field list -->
                 <h6>Field Presence Overview</h6>
                 <div class="field-list" id="fieldList">
                     <!-- Field buttons will be added here by JS -->
                 </div>
             </div>
-            <div class="col-lg-10 col-md-9"> <!-- Responsive column for chart -->
-                 <h6>Comparison Chart</h6>
-                <div class="chart-area card card-body shadow-sm">
-                    <div id="mainChart"></div> <!-- Plotly target div -->
-                </div>
-            </div>
-        </div>
+            <div class="col-lg-10 col-md-9"> <!-- Right column for Chart AND RAG Analysis -->
 
-        <!-- NEW: RAG Analysis Area -->
-        <div class="row g-3 mt-4">
-            <div class="col-12">
-                <h6>RAG Trust Cue Analysis Summary</h6>
-                <div class="card card-body shadow-sm">
-                    <div id="ragAnalysisArea">
-                        <!-- RAG summary table will be added here by JS -->
-                        <p class="text-center text-muted">Loading RAG analysis summary...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+                 <!-- Chart Area -->
+                 <h6>Comparison Chart</h6>
+                 <div id="chartContainer" class="chart-area card card-body shadow-sm mb-3"> <!-- Added mb-3 -->
+                     <div id="mainChart"></div> <!-- Plotly target div -->
+                 </div>
+
+                 <!-- RAG Analysis Area (Moved inside right column) -->
+                 <h6>RAG Trust Cue Analysis Summary</h6>
+                 <div class="card card-body shadow-sm"> <!-- Removed outer row/col -->
+                     <div id="ragAnalysisArea">
+                         <!-- RAG summary table will be added here by JS -->
+                         <p class="text-center text-muted">Loading RAG analysis summary...</p>
+                     </div>
+                 </div>
+
+            </div> <!-- End Right Column -->
+        </div> <!-- End Main Row -->
+
+        <!-- *** REMOVED original separate RAG row *** -->
 
     </div> <!-- End container-fluid -->
 
-    <!-- Bootstrap Modal for Metadata Field Details Panel -->
-    <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+
+    <!-- Field Detail Modal -->
+    <div class="modal fade" id="fieldDetailModal" tabindex="-1" aria-labelledby="fieldDetailModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable"> <!-- Wider modal (XL) -->
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="detailModalLabel">Details</h1>
+                    <h1 class="modal-title fs-5" id="fieldDetailModalLabel">Field Details</h1>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" id="panelBody">
-                    <!-- Panel content will be added here by JS -->
+                <div class="modal-body" id="fieldDetailBody">
+                    <!-- Field details (present/missing files + values) will be added here by JS -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -172,7 +313,8 @@
         </div>
     </div>
 
-    <!-- NEW: Bootstrap Modal for RAG Context Docs -->
+
+    <!-- RAG Context Modal (Original - Keep if needed) -->
     <div class="modal fade" id="ragContextModal" tabindex="-1" aria-labelledby="ragContextModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable"> <!-- Wider modal (XL) -->
             <div class="modal-content">
@@ -190,7 +332,7 @@
         </div>
     </div>
 
-    <!-- NEW: Bootstrap Modal for RAG Cue Details -->
+    <!-- RAG Cue Detail Modal -->
     <div class="modal fade" id="ragCueDetailModal" tabindex="-1" aria-labelledby="ragCueDetailModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable"> <!-- Wider modal (XL) -->
             <div class="modal-content">
@@ -208,6 +350,7 @@
         </div>
     </div>
 
+
     <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
@@ -218,74 +361,6 @@
     <style>
         @keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); } 20%, 40%, 60%, 80% { transform: translateX(5px); } }
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
-
-        /* Style for clickable cue cells */
-        #ragAnalysisTable .cue-cell-clickable {
-            cursor: pointer;
-            color: var(--bs-link-color); /* Use link color */
-            text-decoration: underline;
-            text-decoration-color: var(--bs-link-color);
-            text-underline-offset: 3px;
-        }
-        #ragAnalysisTable .cue-cell-clickable:hover {
-            color: var(--bs-link-hover-color);
-            text-decoration-color: var(--bs-link-hover-color);
-        }
-
-        /* Styling for the new Cue Detail Modal */
-        #ragCueDetailModal .file-section {
-            border: 1px solid var(--bs-border-color);
-            border-radius: 0.375rem; /* Match card radius */
-            padding: 0.75rem;
-            margin-bottom: 1rem;
-            background-color: var(--bs-tertiary-bg); /* Slightly different background */
-        }
-            #ragCueDetailModal .file-section h6 {
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            }
-            #ragCueDetailModal .file-section p {
-            margin-bottom: 0.25rem;
-            font-size: 0.85rem;
-            }
-            #ragCueDetailModal .file-section pre {
-            background-color: var(--bs-secondary-bg);
-            padding: 0.5rem;
-            border-radius: 4px;
-            max-height: 150px; /* Limit context height */
-            overflow-y: auto;
-            white-space: pre-wrap; /* Allow wrapping */
-            word-break: break-word;
-            font-size: 0.75rem; /* Smaller font for context */
-            margin-top: 0.5rem;
-            }
-            #ragCueDetailModal details { margin-top: 0.5rem; }
-            #ragCueDetailModal summary { cursor: pointer; font-weight: 500; font-size: 0.8rem; }
-            #ragCueDetailModal .context-doc {
-            border-bottom: 1px solid var(--bs-border-color);
-            padding-bottom: 0.5rem;
-            margin-bottom: 0.5rem;
-            }
-            #ragCueDetailModal .context-doc:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            }
-            #ragCueDetailModal .evidence-quote {
-                font-style: italic;
-                color: var(--bs-emphasis-color);
-                margin-left: 1rem;
-                display: block; /* Ensure it takes its own line */
-                margin-bottom: 0.5rem;
-            }
-            #ragCueDetailModal .no-evidence {
-                font-style: italic;
-                color: var(--bs-secondary-color);
-                margin-left: 1rem;
-                display: block;
-                margin-bottom: 0.5rem;
-            }
-
-
     </style>
 </body>
 </html>
